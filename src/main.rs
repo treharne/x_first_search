@@ -47,6 +47,12 @@ impl <T>Container<T> for Queue<T> {
 }
 
 
+enum SearchError {
+    NoSolutionYet,
+    PassedTarget,
+    OrphanNode,
+}
+
 struct Tree {
     nodes: RefCell<Vec<Node>>
 }
@@ -82,30 +88,39 @@ impl Tree {
         child_indexes.into_iter().collect()
     }
 
-    fn visit(&self, idx: NodeIdx, target: Dollars) -> Option<Vec<&Item>> {
+    fn visit(&self, idx: NodeIdx, target: Dollars) -> Result<Vec<&Item>, SearchError> {
         let nodes = self.nodes.borrow();
         let mut node = &nodes[idx];
         
-        if node.total != target { return None };
+        if node.total > target { return Err(SearchError::PassedTarget) };
+        if node.total != target { return Err(SearchError::NoSolutionYet) };
         
         let mut items = Vec::new();
         while let Some(item) = node.item {
             items.push(item);
-            node = &nodes[node.parent?];
+            let parent_idx = match node.parent {
+                Some(idx) => idx,
+                None => return Err(SearchError::OrphanNode),
+            };
+            node = &nodes[parent_idx];
         };
 
-        Some(items)
+        Ok(items)
     }
 
     fn search<C>(&mut self, target: Dollars, mut container: C) -> Option<Vec<&Item>> 
     where C: Container<NodeIdx> {
         container.put(0);
         while let Some(node_idx) = container.get() {
-            if let Some(result) = self.visit(node_idx, target) {
-                return Some(result);
-            } 
-            let children = self.get_children(node_idx);
-            container.extend(children);
+            match self.visit(node_idx, target) {
+                Ok(items) => return Some(items),
+                Err(SearchError::PassedTarget) => continue, // Branch and bound: Stop growing this branch
+                Err(SearchError::OrphanNode) => panic!("Orphan node!"),
+                Err(SearchError::NoSolutionYet) => {
+                    let children = self.get_children(node_idx);
+                    container.extend(children);
+                },
+            };
         };
         None
     }
@@ -141,10 +156,11 @@ fn dollars(val: f32) -> Dollars {
 
 fn main() {
     let mut tree = Tree::new();
-    // let target = 3*275 + 2*335 + 4*580 + 3*420 ;
-    let target = dollars(42.35);
+    // let target = 3*275 + 2*335 + 4*580 + 10*420 ;
+    // let target = dollars(42.35);
+    let target = dollars(15050.00);
     // let target = 15.05;
     // let target = 1505;
-    let val = tree.bfs(target);
+    let val = tree.dfs(target);
     println!("{:?}", val);
 }
