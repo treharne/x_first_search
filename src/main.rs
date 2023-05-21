@@ -61,7 +61,8 @@ impl Tree {
         Some(items)
     }
 
-    fn search(&mut self, target: f32, mut container: impl Container) -> Option<Vec<&Item>> {
+    fn search<C>(&mut self, target: f32, mut container: C) -> Option<Vec<&Item>> 
+    where C: Container<NodeIdx> {
         container.put(0);
         while let Some(node_idx) = container.get() {
             if let Some(result) = self.visit(node_idx, target) {
@@ -69,9 +70,6 @@ impl Tree {
             } 
             let children = self.get_children(node_idx);
             container.extend(children);
-            // for child in children {
-            //     container.put(child);
-            // }
         };
         None
     }
@@ -91,34 +89,31 @@ struct Node {
     parent: Option<NodeIdx>,
 }
 
-trait Container {
+trait Container<T>: Extend<T> {
     // a generic type for a FIFO Queue or LIFO Stack
     // so that we can make the search function 
     // do either BFS or DFS
-    fn put(&mut self, node_idx: NodeIdx) -> ();
-    fn get(&mut self) -> Option<NodeIdx>;
-    // fn extend(&mut self, nodes: Vec<&Node>) -> () {
-    //     self.extend(nodes)
-    // }
+    fn put(&mut self, val: T) -> ();
+    fn get(&mut self) -> Option<T>;
 }
 
-type Stack = Vec<NodeIdx>;
-type Queue = VecDeque<NodeIdx>;
+type Stack<T> = Vec<T>;
+type Queue<T> = VecDeque<T>;
 
-impl Container for Stack {
-    fn put(&mut self, node_idx: NodeIdx) -> () {
-        self.push(node_idx);
+impl <T>Container<T> for Stack<T> {
+    fn put(&mut self, val: T) -> () {
+        self.push(val);
     }
-    fn get(&mut self) -> Option<NodeIdx> {
+    fn get(&mut self) -> Option<T> {
         self.pop()
     }
 }
 
-impl Container for Queue {
-    fn put(&mut self, node_idx: NodeIdx) -> () {
-        self.push_back(node_idx);
+impl <T>Container<T> for Queue<T> {
+    fn put(&mut self, val: T) -> () {
+        self.push_back(val);
     }
-    fn get(&mut self) -> Option<NodeIdx> {
+    fn get(&mut self) -> Option<T> {
         self.pop_front()
     }
 }
